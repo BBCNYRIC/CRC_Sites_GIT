@@ -1,0 +1,255 @@
+<cfif session.auth.authlevel LT 2>
+You dont have access to this page<cfabort></cfif>
+
+<cfif NOT isdefined("FORM.tid")>
+	<cflocation url="adminmain.cfm" addtoken="No">
+	<cfabort>
+</cfif>
+
+<!--- if this form has been submited, update the record --->
+<cfif isdefined("FORM.updated")>
+
+<cfparam name="FORM.hidepage" type="string" default="no">
+<cfparam name="FORM.lockHeader" type="string" default="no">
+<cfparam name="FORM.pppage" type="string" default="no">
+<cfparam name="FORM.newwindow" type="string" default="no">
+
+
+<!--- if they password protected it but didn't enter a password --->
+<cfif FORM.pppage EQ 'yes' AND FORM.pagePassword EQ ''>
+
+<cfinclude template="../header.cfm">
+<cfinclude template="../navtable.cfm"><br>
+
+  <table width="90%" border="0" cellspacing="0" cellpadding="6" class="LL BL RL TL tempeditBGcolor" align="center">
+          <tr class="headercolor"> 
+            <td colspan="3" class="BL" align="left"><span class="tempeditHeader">Invalid selection:</span></td>
+          </tr>
+          <tr> 
+            <td align="center"> You have chosen to password protect this page but you did not choose a password.  Use your browsers back button to go back and enter a password.</td>
+          </tr>
+        </table>
+
+<br><br><cfinclude template="../footer.cfm">
+<cfabort>
+</cfif>
+
+<!--- if switching between a password protected and non-protected page, move all the files --->
+
+<cfquery name="prevPP" datasource="#datasource#">
+SELECT pppage
+FROM pageatt
+WHERE tid = <cfqueryparam value="#FORM.tid#" cfsqltype="CF_SQL_INTEGER">
+</cfquery>
+
+<cfif prevPP.pppage EQ 'yes' AND FORM.pppage EQ 'no'>
+
+<!--- make sure directory exists --->
+<cfif directoryExists("F:/Inetpub/wwwroot/crc_sites/marcellus/tfilesProc/folder#FORM.tid#") IS "Yes">
+
+<cfdirectory action = "rename"
+	directory = "F:/Inetpub/wwwroot/crc_sites/marcellus/tfilesProc/folder#FORM.tid#" 
+	newDirectory = "F:/Inetpub/wwwroot/crc_sites/marcellus/tfiles/folder#FORM.tid#">
+	
+</cfif>
+	
+<cfelseif prevPP.pppage EQ 'no' AND FORM.pppage EQ 'yes'>
+
+<!--- make sure directory exists --->
+<cfif directoryExists("F:/Inetpub/wwwroot/crc_sites/marcellus/tfiles/folder#FORM.tid#") IS "Yes">
+
+<cfdirectory action = "rename"
+	directory = "F:/Inetpub/wwwroot/crc_sites/marcellus/tfiles/folder#FORM.tid#" 
+	newDirectory = "F:/Inetpub/wwwroot/crc_sites/marcellus/tfilesProc/folder#FORM.tid#">
+	
+</cfif>
+
+</cfif>
+
+
+<cfquery datasource="#datasource#">
+UPDATE contacts
+SET accessgroup = <cfif isdefined("FORM.acccode")><cfqueryparam value="#FORM.acccode#" cfsqltype="CF_SQL_INTEGER"><cfelse>0</cfif>,
+	description = <cfqueryparam value="#Trim(preserveSingleQuotes(FORM.description))#" cfsqltype="CF_SQL_CHAR">,
+	rankorder = <cfqueryparam value="#Trim(FORM.rankorder)#" cfsqltype="CF_SQL_INTEGER">,
+	hidepage = <cfqueryparam value="#FORM.hidepage#" cfsqltype="CF_SQL_CHAR">,
+	lockHeader = <cfqueryparam value="#FORM.lockHeader#" cfsqltype="CF_SQL_CHAR">
+WHERE tid = <cfqueryparam value="#FORM.tid#" cfsqltype="CF_SQL_INTEGER">
+</cfquery>
+
+<cfquery datasource="#datasource#">
+UPDATE teacher
+SET homepage = <cfqueryparam value="#Trim(preserveSingleQuotes(FORM.homepage))#" cfsqltype="CF_SQL_CHAR">,
+	description = <cfqueryparam value="#Trim(preserveSingleQuotes(FORM.description))#" cfsqltype="CF_SQL_CHAR">
+WHERE tid = <cfqueryparam value="#FORM.tid#" cfsqltype="CF_SQL_INTEGER">
+</cfquery>
+
+
+<cfquery datasource="#datasource#">
+UPDATE pageatt
+SET pagePassword = <cfqueryparam value="#FORM.pagePassword#" cfsqltype="CF_SQL_CHAR">,
+	pppage = <cfqueryparam value="#FORM.pppage#" cfsqltype="CF_SQL_CHAR">,
+	newwindow = <cfqueryparam value="#FORM.newwindow#" cfsqltype="CF_SQL_CHAR">,
+	<cfif FORM.showDateFrom EQ ''>showDateFrom=NULL,
+	<cfelse>
+	showDateFrom=<cfqueryparam value="#DateFormat(FORM.showDateFrom, 'M/D/YYYY')#" cfsqltype="CF_SQL_DATE">,</cfif>
+	<cfif FORM.showDateTo EQ ''>showDateTo=NULL
+	<cfelse>
+	showDateTo=<cfqueryparam value="#DateFormat(FORM.showDateTo, 'M/D/YYYY')#" cfsqltype="CF_SQL_DATE"></cfif>
+WHERE tid = <cfqueryparam value="#FORM.tid#" cfsqltype="CF_SQL_INTEGER">
+</cfquery>
+
+
+</cfif>
+
+
+<!--- if wants to modify a record, list all the users' info.  this should be coming from the select box in adminmain --->
+<cfquery name="getuserinfo" datasource="#datasource#">
+SELECT *
+FROM contacts, teacher, pageatt
+WHERE contacts.tid = <cfqueryparam value="#FORM.tid#" cfsqltype="CF_SQL_INTEGER">
+	AND teacher.tid = <cfqueryparam value="#FORM.tid#" cfsqltype="CF_SQL_INTEGER">
+	AND pageatt.tid = <cfqueryparam value="#FORM.tid#" cfsqltype="CF_SQL_INTEGER">
+</cfquery>
+
+
+<!--- query for all access categories --->
+<cfquery name="getaccesscats" datasource="#datasource#">
+SELECT *
+FROM accessgroup
+WHERE iscat = 'yes'
+	AND groupid <> 10
+<cfif session.auth.authlevel EQ 2>
+AND groupid IN(#session.auth.accesscode#)</cfif>
+ORDER BY groupname
+</cfquery>
+
+<cfinclude template="../header.cfm">
+<cfinclude template="../navtable.cfm"><br>
+
+<cfinclude template="../../cfGlobalCode/globalScriptsDatePicker.cfm">
+
+<!--- include table hide / unhide js --->
+<cfinclude template="../../cfGlobalCode/globalScripts.cfm">
+
+
+<cfform name="form1" method="post" action="#CGI.SCRIPT_NAME#">
+
+<input type="hidden" name="updated" value="yes">
+<cfoutput><input type="hidden" name="tid" value=#getuserinfo.tid#></cfoutput>
+<table width="90%" border="0" cellspacing="0" cellpadding="6" class="LL BL RL TL tempeditBGcolor" align="center">
+          <tr class="headercolor"> 
+            <td colspan="3" class="BL" align="left"><span class="tempeditHeader">Update Page Settings</span></td>
+          </tr>
+		  
+		  <!--- navbar --->
+		  <tr><td bgcolor="#ffffff" class="BL noPadCell" colspan="3">
+		  
+		 <table border="0" cellspacing="0" cellpadding="0"><tr>
+		 <td><img src="http://www.cnyric.org/images/tempedit_navbar_jumpto.gif" alt="" border="0"></td>
+		 <td><a href="adminmain.cfm"><img src="http://www.cnyric.org/images/tempedit_navbar_admin.gif" alt="" border="0"></a></td>
+		 <td><a href="teditpage.cfm"><img src="http://www.cnyric.org/images/tempedit_navbar_tempedit.gif" alt="" border="0"></a></td>
+		 <td><a href="adminAddPage.cfm"><img src="http://www.cnyric.org/images/tempedit_navbar_addpage.gif" alt="" border="0"></a></td>
+		 <td><a href="../logout.cfm"><img src="http://www.cnyric.org/images/tempedit_navbar_logout.gif" alt="" border="0"></a></td>
+		 </tr></table>
+		 </td></tr>
+		 <!--- spacer row --->
+		  <tr><td height="20"></td></tr>
+		  
+		  <!--- end navbar --->
+		  
+		  
+		  <tr> 
+            <td align="right"> Unique id: </td>
+            <td align="left"> <cfoutput>#getuserinfo.tid#</cfoutput> </td>
+          </tr>
+		  
+          <tr> 
+            <td align="right"> Page Name: </td>
+            <td align="left"> <cfinput type="text" class="gl_textbox" name="description" value="#getuserinfo.description#" message="Please enter a description" required="Yes" size="50" maxlength="255"> </td>
+          </tr>
+		  
+		  <tr> 
+            <td align="right" valign="top">
+			<table id="showtext" <cfif getuserinfo.homepage NEQ 'default'>style="display:none;"</cfif>><tr><td><a href="##" onclick="showTable('hidetext');showTable('hidetext2');hideTable('showtext');">Link to an outside page [+]</a></td></tr></table> 
+			<table id="hidetext2" <cfif getuserinfo.homepage EQ 'default'>style="display:none;"</cfif>><tr><td><a href="##" onclick="showTable('showtext');hideTable('hidetext2');hideTable('hidetext');">Link to an outside page [-]</a></td></tr></table> </td>
+            <td align="left">
+			<table id="hidetext" <cfif getuserinfo.homepage EQ 'default'>style="display:none;"</cfif>><tr><td><cfinput type="Text" name="homepage" value="#getuserinfo.homepage#" required="No" size="50" class="gl_textbox"> <br><font size="-2">*Leave as default if using a page created with tempEDIT OR paste in URL</font>
+		</td></tr></table>
+</td>
+          </tr>
+		  
+		   <tr> 
+            <td align="right"> Rank: </td>
+            <td align="left"> <cfinput type="Text" name="rankorder" message="Please enter a number for page rank order" validate="integer" required="yes" size="5" class="gl_textbox" value="#getuserinfo.rankorder#"><font size="-2"> Order to list on nav bar</font> </td>
+          </tr>
+		  
+		  <tr> 
+            <td align="right"> Hide this page: </td>
+            <td align="left"> <input type="checkbox" name="hidepage" value="yes" <cfif getuserinfo.hidepage EQ 'yes'>checked</cfif>> </td>
+          </tr>
+		  
+		  
+		   <tr> 
+            <td align="right"> Password protect this page: </td>
+            <td align="left"> <input type="checkbox" name="pppage" value="yes" <cfif getuserinfo.pppage EQ 'yes'>checked</cfif>> &nbsp;&nbsp;&nbsp;
+			Password:&nbsp;&nbsp;
+			<cfinput type="Text" name="pagePassword" value="#getuserinfo.pagePassword#" size="30" class="gl_textbox">
+			</td>
+          </tr>
+		  
+		  <cfif session.auth.authlevel EQ 3>
+		  <tr> 
+            <td align="right"> Lock the header of this page: </td>
+            <td align="left"> <input type="checkbox" name="lockHeader" value="yes" <cfif getuserinfo.lockHeader EQ 'yes'>checked</cfif>> </td>
+          </tr>
+		  </cfif>
+		  
+		  <tr> 
+            <td align="right"> Open link in new window: </td>
+            <td align="left"> <input type="checkbox" name="newwindow" value="yes" <cfif getuserinfo.newwindow EQ 'yes'>checked</cfif>> </td>
+          </tr>
+		  
+		  <tr> 
+            <td align="right" valign="top">
+			 <div id="dateRangeWindow" <cfif getuserinfo.showDateFrom NEQ '' OR getuserinfo.showDateTo NEQ ''>style="display:none;"</cfif>><a href="##" onclick="hideTable('dateRangeWindow');showTable('dateRangeWindow2');showTable('dateRangeWindow3');">Choose date range for this page [+]</a></div>
+			 <div id="dateRangeWindow3" <cfif getuserinfo.showDateFrom EQ '' AND getuserinfo.showDateTo EQ ''>style="display:none;"</cfif>><a href="##" onclick="hideTable('dateRangeWindow2');hideTable('dateRangeWindow3');showTable('dateRangeWindow');">Hide Date range [-]</a></div>
+			</td>
+            <td align="left"> 
+			<div id="dateRangeWindow2" <cfif getuserinfo.showDateFrom EQ '' AND getuserinfo.showDateTo EQ ''>style="display:none;"</cfif>>
+			<table border="0" cellpadding="2">
+<tr><td>Choose date(s) to start and stop showing this page.  Page will be unavailable outside of date range.<br><br></td></tr>
+<tr><td>
+
+Begin showing: <cfinput type="Text" name="showDateFrom" value="#DateFormat(getuserinfo.showDateFrom,'M/D/YYYY')#" validate="date" required="No" size="16" id="showDateFrom" placeholder="Click to choose date">
+
+&nbsp;&nbsp;&nbsp;&nbsp;
+
+Stop showing after: <cfinput type="Text" name="showDateTo" value="#DateFormat(getuserinfo.showDateTo,'M/D/YYYY')#" validate="date" required="No" size="16" id="showDateTo" placeholder="Click to choose date">
+
+</td></tr></table>
+			</div>
+			</td>
+          </tr>
+		  
+		  <tr> 
+            <td align="right" valign="top"> Put page in group: </td>
+            <td align="left"> <cfoutput query="getaccesscats">
+					<input type="radio" name="acccode" value="#groupid#" <cfif getuserinfo.accessgroup EQ #groupid#>checked</cfif>> #groupname# <br>
+				 </cfoutput> </td>
+          </tr> 
+		  
+		  
+		  <tr> 
+            <td align="right"> <a href="adminremuser.cfm?teacher_id=<cfoutput>#getuserinfo.tid#</cfoutput>">Delete this page</a> </td>
+          </tr>
+		  
+          <tr> 
+            <td>&nbsp;</td>
+            <td> <input type="submit" class="gl_submit" name="Submit" value="Save Changes"> 
+			     <input type="reset" class="gl_submit" name="reset" value="Reset All Fields"></td>
+          </tr>
+        </table>
+</cfform>
+<br><br><cfinclude template="../footer.cfm"></body>
+</html>
