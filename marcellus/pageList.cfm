@@ -1,5 +1,5 @@
 <cfquery datasource="#datasource#" name="getlist">
-SELECT *
+SELECT * 
 FROM contacts, teacher, accessgroup, pageatt
 WHERE teacher.tid = contacts.tid
 	AND pageatt.tid = contacts.tid

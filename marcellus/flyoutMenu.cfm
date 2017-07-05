@@ -1,6 +1,6 @@
 <!--- right nav buttons --->
 <table border="0" cellspacing="0" cellpadding="0" align="right">
-<tr>
+<tr> 
 
 <td width="99">
 <ul id="menu">
