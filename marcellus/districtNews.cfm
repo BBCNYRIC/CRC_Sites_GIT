@@ -3,7 +3,7 @@
 <!--- query for news items --->
 <cfquery datasource="#datasource#" name="newslinks">
 SELECT contacts.description, contacts.tid, teacher.homepage, pageatt.title, pageatt.body, contacts.newscat, pageatt.showDateFrom, pageatt.showDateTo
-FROM contacts, teacher, pageatt
+FROM contacts, teacher, pageatt  
 WHERE teacher.tid = contacts.tid
 	AND pageatt.tid = contacts.tid
 	AND ISNULL(pageatt.showDateFrom, '1/1/1900') <= <cfqueryparam value="#DateFormat(Now())#" cfsqltype="CF_SQL_DATE">
